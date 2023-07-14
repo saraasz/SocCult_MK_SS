@@ -1,18 +1,18 @@
-from math import log
-
 import arviz as az
 import numpy as np
 import plotly.express as px
 from plotly.subplots import make_subplots
 from scipy.special import softmax
 from sklearn.metrics import pairwise_distances
+from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm, trange
 
 
 def simulate_elections(
     rng: np.random.Generator,
     initial_state: np.ndarray,
-    distances: np.ndarray,
+    similarities: np.ndarray,
+    # distances: np.ndarray,
     honesty: float = 1,
     tactic: float = 1,
     faithfulness: float = 1,
@@ -38,16 +38,22 @@ def simulate_elections(
     states: ndarray of shape (n_elections, n_candidates)
         Number of votes for each candidate in each election.
     """
-    n_voters, n_candidates = distances.shape
+    n_voters, n_candidates = similarities.shape
     votes = np.zeros((n_voters, n_candidates))
     state = np.copy(initial_state)
     states = []
     lrange = trange if pbar else range
     for i_election in lrange(n_elections):
-        d = -honesty * np.log(distances)
-        p = tactic * np.log(state)
-        f = votes * faithfulness
-        logutility = d + p + f
+        # d = -honesty * np.log(distances)
+        # p = tactic * np.log(state)
+        # f = votes * faithfulness
+        # logutility = np.log(distances) + p + f
+        prob_party = state / np.sum(state)
+        logutility = (
+            honesty * np.log(similarities + 1)
+            + tactic * np.log(prob_party + 1)
+            + faithfulness * votes
+        )
         probability = softmax(logutility, axis=1)
         votes = rng.multinomial(n=1, pvals=probability)
         state = np.sum(votes, axis=0)
@@ -59,14 +65,17 @@ faithfulness_range = [0.0, 4.0]
 tactic_range = [0.0, 1.0]
 
 rng = np.random.default_rng(0)
-voters = normal_voters(rng, 10_000, 10)
+voters = rng.normal(0, 1, (10_000, 10))
 voters, candidates = voters[10:], voters[:10]
 n_voters, n_candidates = voters.shape[0], candidates.shape[0]
-distances = pairwise_distances(voters, candidates, metric="euclidean")
+# distances = pairwise_distances(voters, candidates, metric="cosine")
+similarities = cosine_similarity(voters, candidates)
 initial_state = rng.multinomial(n_voters, np.ones(n_candidates) / n_candidates)
 
+px.histogram(np.ravel(similarities)).show()
+
 n_simulations = 10
-params = np.linspace(0.0, 1.0, n_simulations)
+params = np.linspace(0.0, 10.0, n_simulations)
 n_cols = 4
 n_rows = n_simulations // n_cols
 if n_simulations % n_cols:
@@ -81,10 +90,10 @@ for i, p in enumerate(tqdm(params)):
         elections = simulate_elections(
             rng,
             initial_state,
-            distances,
-            faithfulness=0.0,
-            tactic=p,
-            honesty=10,
+            similarities,
+            honesty=1,
+            faithfulness=p,
+            tactic=1,
             pbar=False,
             n_elections=1000,
         )
@@ -106,9 +115,8 @@ for i_chain in trange(n_chains):
             rng,
             initial_state,
             distances,
-            faithfulness=0.0,
-            tactic=0.0,
-            honesty=1,
+            faithfulness=p,
+            tactic=p,
             n_elections=n_draws + n_warmup,
             pbar=False,
         )[n_warmup:]
