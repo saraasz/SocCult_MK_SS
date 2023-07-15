@@ -53,6 +53,14 @@ def main():
     initial_state = rng.multinomial(
         init["n_voters"], np.ones(init["n_candidates"]) / init["n_candidates"]
     )
+    print("Saving initial parameters")
+    np.savez(
+        Path(dest_dir, "init.npz"),
+        voters=voters,
+        candidates=candidates,
+        similarities=similarities,
+        initial_state=initial_state,
+    )
     # Creating ranges
     params = config["parameters"]
     certainties = np.linspace(
