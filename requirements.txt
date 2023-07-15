@@ -1,0 +1,4 @@
+numpy==1.22.4
+confection==0.0.4
+scipy==1.8.1
+scikit-learn==1.2.2

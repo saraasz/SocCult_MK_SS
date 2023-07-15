@@ -1,66 +1,3 @@
-import arviz as az
-import numpy as np
-import plotly.express as px
-from plotly.subplots import make_subplots
-from scipy.special import softmax
-from sklearn.metrics import pairwise_distances
-from sklearn.metrics.pairwise import cosine_similarity
-from tqdm import tqdm, trange
-
-
-def simulate_elections(
-    rng: np.random.Generator,
-    initial_state: np.ndarray,
-    similarities: np.ndarray,
-    # distances: np.ndarray,
-    honesty: float = 1,
-    tactic: float = 1,
-    faithfulness: float = 1,
-    n_elections: int = 1000,
-    pbar: bool = True,
-) -> np.ndarray:
-    """
-    Parameters
-    ----------
-    initial_state: ndarray of shape (n_candidates)
-        Initial election results.
-    distances: ndarray of shape (n_voters, n_candidates)
-        Distance of each voter from each candidate.
-    honesty: float, default 1
-        Importance of distance when voting.
-    tactic: float, default 1
-        Importance of popularity when voting.
-    faithfulness: float, default 1
-        Importance of previous vote.
-
-    Returns
-    -------
-    states: ndarray of shape (n_elections, n_candidates)
-        Number of votes for each candidate in each election.
-    """
-    n_voters, n_candidates = similarities.shape
-    votes = np.zeros((n_voters, n_candidates))
-    state = np.copy(initial_state)
-    states = []
-    lrange = trange if pbar else range
-    for i_election in lrange(n_elections):
-        # d = -honesty * np.log(distances)
-        # p = tactic * np.log(state)
-        # f = votes * faithfulness
-        # logutility = np.log(distances) + p + f
-        prob_party = state / np.sum(state)
-        logutility = (
-            honesty * np.log(similarities + 1)
-            + tactic * np.log(prob_party + 1)
-            + faithfulness * votes
-        )
-        probability = softmax(logutility, axis=1)
-        votes = rng.multinomial(n=1, pvals=probability)
-        state = np.sum(votes, axis=0)
-        states.append(state)
-    return np.stack(states)
-
-
 faithfulness_range = [0.0, 4.0]
 tactic_range = [0.0, 1.0]
 
@@ -93,7 +30,7 @@ for i, p in enumerate(tqdm(params)):
             similarities,
             honesty=1,
             faithfulness=p,
-            tactic=1,
+            tactic=p,
             pbar=False,
             n_elections=1000,
         )
