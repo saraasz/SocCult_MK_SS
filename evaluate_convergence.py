@@ -23,6 +23,7 @@ def run_mcmc_diagnostic(
         }
         for i_candidate, value in enumerate(results):
             record[f"{diagnostic.__name__}_cand_{i_candidate}"] = value
+        records.append(record)
     return pd.DataFrame.from_records(records)
 
 
