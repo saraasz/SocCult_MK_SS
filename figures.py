@@ -216,3 +216,7 @@ def main():
     print("Saving")
     fig.write_image("figures/r_squared_pairplots.png")
     print("DONE")
+
+
+if __name__ == "__main__":
+    main()
