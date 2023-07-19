@@ -7,10 +7,44 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
+def produce_heatmap(
+    data: pd.DataFrame, measure: str, colorscale="Viridis"
+) -> go.Figure:
+    data = data.groupby(["tactic", "certainty", "loyalty"])[[measure]].median()
+    data = data[measure].unstack(level="loyalty")
+    fig = make_subplots(
+        cols=4,
+        rows=3,
+        subplot_titles=[f"Loyalty={i}" for i in range(11)],
+        horizontal_spacing=0.05,
+        vertical_spacing=0.05,
+        x_title="certainty",
+        y_title="tactic",
+    )
+    for i, loyalty in enumerate(np.linspace(0.0, 10.0, 11)):
+        group = data[loyalty].unstack()
+        trace = go.Heatmap(
+            x=np.linspace(0.0, 10.0, 11),
+            y=np.linspace(0.0, 10.0, 11),
+            z=group.round(2),
+            texttemplate="%{z}",
+            coloraxis="coloraxis",
+        )
+        col = (i % 4) + 1
+        row = (i // 4) + 1
+        fig.add_trace(trace, col=col, row=row)
+        fig.update_layout(
+            coloraxis_colorbar=dict(title=measure),
+            coloraxis_colorscale=colorscale,
+        )
+    return fig
+
+
 def main():
     print("Creating output folder.")
     Path("figures").mkdir(exist_ok=True)
     print("Loading regression data.")
+
     reg = pd.read_feather("results/regression_metrics.feather")
     reg = reg.rename(
         columns=dict(
@@ -19,28 +53,32 @@ def main():
     )
 
     print("Producing MAPE plot.")
-    jitter_reg = reg.copy()
-    n = len(jitter_reg.index)
-    jitter_reg["tactic"] = jitter_reg["tactic"] + np.random.uniform(
-        -0.5, 0.5, n
-    )
-    jitter_reg["certainty"] = jitter_reg["certainty"] + np.random.uniform(
-        -0.5, 0.5, n
-    )
-    fig = px.scatter(
-        jitter_reg,
-        x="certainty",
-        y="tactic",
-        color="MAPE",
-        facet_col="loyalty",
-        facet_col_wrap=4,
-        category_orders={"loyalty": np.linspace(0.0, 10.0, 11)},
-        template="plotly_white",
-    )
-    fig = fig.update_traces(marker=dict(opacity=0.02))
+    fig = produce_heatmap(reg, "MAPE")
     fig = fig.update_layout(width=1000, height=1000)
     print("Saving.")
-    fig.write_image("figures/mape.png")
+    fig.write_image("figures/mape_heatmap.png")
+
+    fig = px.scatter(
+        reg[(reg.loyalty == 0)],
+        x="tactic",
+        y="r2_score",
+        facet_col="certainty",
+        facet_col_wrap=4,
+        category_orders={"certainty": np.linspace(0.0, 10.0, 11)},
+        color="r2_score",
+        template="plotly_white",
+    )
+    fig.update_yaxes(range=[-1.0, 1.0])
+    fig.update_layout(width=1000, height=1000)
+    fig.update_layout(
+        coloraxis=dict(
+            cmid=0.0,
+            cmax=1.0,
+            cmin=-1,
+            colorscale=px.colors.diverging.Picnic_r,
+        )
+    )
+    fig.write_image("figures/tactic_effect_low_loyalty.png")
 
     print("Loading ess data.")
     ess = pd.read_feather("results/ess.feather")
@@ -96,46 +134,58 @@ def main():
     print("Saving.")
     fig.write_image("figures/rhat.png")
 
+    print("Box plots for ESS and R hat")
+    fig = px.box(
+        ess,
+        x="loyalty",
+        y="ess_total",
+        template="plotly_white",
+    )
+    fig = fig.update_layout(
+        width=1000,
+        height=1000,
+    )
+    fig = fig.update_traces(marker_color="rgb(136, 204, 238)")
+    fig.write_image("figures/loyalty_ess_box.png")
+
+    fig = px.box(rhat, x="loyalty", y="rhat", template="plotly_white")
+    fig = fig.update_layout(width=1000, height=1000)
+    fig = fig.update_traces(marker_color="rgb(221, 204, 119)")
+    fig.write_image("figures/loyalty_rhat.png")
+
     print("Loading entropy data")
     entropy = pd.read_feather("results/entropy.feather")
     entropy = entropy.rename(columns=dict(faithfulness="loyalty"))
     print("Producing KL-div plot.")
-    jitter = entropy.copy()
-    n = len(jitter.index)
-    jitter["tactic"] = jitter["tactic"] + np.random.uniform(-0.5, 0.5, n)
-    jitter["certainty"] = jitter["certainty"] + np.random.uniform(-0.5, 0.5, n)
-    fig = px.scatter(
-        jitter,
-        x="certainty",
-        y="tactic",
-        color="kl_divergence",
-        facet_col="loyalty",
-        facet_col_wrap=4,
-        category_orders={"loyalty": np.linspace(0.0, 10.0, 11)},
-        template="plotly_white",
-        color_continuous_scale="PuRd",
-    )
-    fig = fig.update_traces(marker=dict(opacity=0.02))
+    fig = produce_heatmap(entropy, "kl_divergence", px.colors.sequential.BuPu)
     fig = fig.update_layout(width=1000, height=1000)
     print("Saving")
-    fig.write_image("figures/kl_divergence.png")
+    fig.write_image("figures/kl_divergence_heatmap.png")
 
     print("Producing entropy plot.")
-    fig = px.scatter(
-        jitter,
-        x="certainty",
-        y="tactic",
-        color="entropy",
-        facet_col="loyalty",
-        facet_col_wrap=4,
-        category_orders={"loyalty": np.linspace(0.0, 10.0, 11)},
-        template="plotly_white",
-        color_continuous_scale="PuBu_r",
-    )
-    fig = fig.update_traces(marker=dict(opacity=0.02))
+    fig = produce_heatmap(entropy, "entropy", px.colors.sequential.PuBuGn_r)
     fig = fig.update_layout(width=1000, height=1000)
     print("Saving")
-    fig.write_image("figures/entropy.png")
+    fig.write_image(
+        "figures/entropy_heatmap.png",
+    )
+
+    print("Producing r squared heatmap")
+    fig = produce_heatmap(reg, "r2_score")
+    fig = fig.update_layout(
+        width=1000,
+        height=1000,
+        coloraxis=dict(
+            cmid=0.0,
+            cmax=1.0,
+            cmin=-1,
+            colorscale=px.colors.diverging.Picnic_r,
+        ),
+    )
+    print("Saving")
+    fig.write_image(
+        "figures/r2_heatmap.png",
+    )
 
     print("Producing r squared marginal plot.")
     reg["R²"] = ""
@@ -172,7 +222,7 @@ def main():
             fig.add_trace(trace, row=i + 1, col=1)
     fig = fig.update_layout(template="plotly_white")
     fig = fig.update_layout(width=1000, height=1000)
-    fig = fig.update_xaxes(showticklabels=False)
+    fig = fig.update_yaxes(showticklabels=False)
     print("Saving")
     fig.write_image("figures/r_squared_marginal.png")
 
@@ -215,6 +265,21 @@ def main():
     fig = fig.update_xaxes(title="tactic", col=3, row=7)
     print("Saving")
     fig.write_image("figures/r_squared_pairplots.png")
+
+    print("Loyalty R2 plot")
+    fig = px.box(
+        reg[reg.tactic == 10],
+        x="loyalty",
+        y="r2_score",
+        template="plotly_white",
+        color="certainty",
+        category_orders={"certainty": np.linspace(0.0, 10.0, 11)},
+        color_discrete_sequence=px.colors.qualitative.Pastel,
+    )
+    fig = fig.update_layout(width=1000, height=1000)
+    print("Saving")
+    fig.write_image("figures/loyalty_r2.png")
+
     print("DONE")
 
 
