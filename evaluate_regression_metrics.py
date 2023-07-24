@@ -1,12 +1,18 @@
+"""Calculates regression evaluation metrics to
+ideal results based on simulation data."""
 import glob
 from pathlib import Path
 from typing import Callable
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (max_error, mean_absolute_error,
-                             mean_absolute_percentage_error,
-                             mean_squared_error, r2_score)
+from sklearn.metrics import (
+    max_error,
+    mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_squared_error,
+    r2_score,
+)
 from tqdm import tqdm
 
 

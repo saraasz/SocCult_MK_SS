@@ -1,3 +1,4 @@
+"""Calculates MCMC Convergence metrics based on simulation data."""
 import glob
 from pathlib import Path
 from typing import Callable

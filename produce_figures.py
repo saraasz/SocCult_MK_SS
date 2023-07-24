@@ -1,3 +1,4 @@
+"""Produces all figures based on the calculated results."""
 from pathlib import Path
 
 import numpy as np
@@ -58,6 +59,7 @@ def main():
     print("Saving.")
     fig.write_image("figures/mape_heatmap.png")
 
+    print("Producing tactic with low loyalty plot.")
     fig = px.scatter(
         reg[(reg.loyalty == 0)],
         x="tactic",
@@ -84,25 +86,6 @@ def main():
     ess = pd.read_feather("results/ess.feather")
     ess["ess_total"] = ess[[f"ess_cand_{i}" for i in range(10)]].sum(axis=1)
     ess = ess.rename(columns=dict(faithfulness="loyalty"))
-
-    print("Producing ESS plot.")
-    jess = ess.copy()
-    n = len(jess.index)
-    jess["tactic"] = jess["tactic"] + np.random.uniform(-0.2, 0.2, n)
-    jess["certainty"] = jess["certainty"] + np.random.uniform(-0.2, 0.2, n)
-    fig = px.scatter(
-        jess,
-        x="certainty",
-        y="tactic",
-        color="loyalty",
-        size="ess_total",
-        template="plotly_white",
-        size_max=40,
-        color_continuous_scale="Purpor",
-    )
-    fig = fig.update_layout(width=1000, height=1000)
-    print("Saving.")
-    fig.write_image("figures/ess.png")
 
     print("Loading Rhat data")
     rhat = pd.read_feather("results/rhat.feather")
@@ -225,46 +208,6 @@ def main():
     fig = fig.update_yaxes(showticklabels=False)
     print("Saving")
     fig.write_image("figures/r_squared_marginal.png")
-
-    print("Producing r squared pair plots.")
-    subplot_titles = [["", f" (R² {group})", ""] for group in r2_groups]
-    subplot_titles = [item for sublist in subplot_titles for item in sublist]
-    fig = make_subplots(
-        rows=7,
-        cols=3,
-        subplot_titles=subplot_titles,
-        horizontal_spacing=0.07,
-        vertical_spacing=0.03,
-    )
-    pairs = [
-        ("certainty", "tactic"),
-        ("loyalty", "certainty"),
-        ("tactic", "loyalty"),
-    ]
-    scales = ["BuGn", "BuPu", "Blues"]
-    for row, group in enumerate(r2_groups):
-        for col, (x, y) in enumerate(pairs):
-            data = reg[reg["R²"] == group]
-            fig.add_trace(
-                go.Histogram2d(
-                    x=data[x],
-                    y=data[y],
-                    colorscale=scales[col],
-                    showscale=False,
-                ),
-                col=col + 1,
-                row=row + 1,
-            )
-            fig.update_yaxes(
-                title=y, col=col + 1, row=row + 1, title_standoff=0
-            )
-    fig = fig.update_layout(width=800, height=1600)
-    fig = fig.update_layout(margin=dict(b=0, l=0, r=0, t=20))
-    fig = fig.update_xaxes(title="certainty", col=1, row=7)
-    fig = fig.update_xaxes(title="loyalty", col=2, row=7)
-    fig = fig.update_xaxes(title="tactic", col=3, row=7)
-    print("Saving")
-    fig.write_image("figures/r_squared_pairplots.png")
 
     print("Loyalty R2 plot")
     fig = px.box(

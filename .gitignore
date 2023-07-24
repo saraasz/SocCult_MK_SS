@@ -8,6 +8,12 @@ __pycache__/
 
 # Simulations
 simulations/
+simulation.zip
+
+# Results
+results/
+results.zip
+
 
 # Papers
 papers/

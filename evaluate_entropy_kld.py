@@ -1,3 +1,5 @@
+"""Calculates entropy and relative entropy to
+ideal results based on simulation data."""
 import glob
 from pathlib import Path
 
